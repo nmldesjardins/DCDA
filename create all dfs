@@ -1,0 +1,158 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jan 25 23:44:43 2017
+
+@author: Insight
+Run connect.py first to open db connection
+"""
+# Run connect.py first to open db connection
+import connect
+python connect.py
+
+import pandas as pd
+
+call13ex = ('SELECT tblNameActual.FullName, tblNameActual.NameID,' 
+        ' COUNT(tblCaseActual.CaseID) as cases' 
+        ' FROM tblNameActual'
+        ' JOIN tblCaseActual'
+        ' ON tblCaseActual.NameID = tblNameActual.NameID'
+        ' WHERE tblNameActual.NameID > 541' 
+        " AND tblNameActual.NameID != 219998"
+        " AND tblNameActual.NameID != 222460"
+        " AND tblNameActual.NameID NOT LIKE '%test%'" 
+        " AND tblNameActual.FullName != 'Mickey Mouse'"
+        " AND tblNameActual.FullName NOT LIKE '%UNKNOWN%'"
+        " AND tblNameActual.FullName != 'NO DEFENDANT'"
+        " AND tblNameActual.FullName != 'EXPUNGED'"
+        " AND tblCaseActual.RcvdDt >= '2013-01-01'"
+        ' Group BY tblNameActual.FullName, tblNameActual.NameID'
+        ' ORDER BY cases')
+
+ncases13_ex = pd.read_sql(call13ex,cnxn)
+
+# create recidivsim feature
+def recid (row):
+    if row['cases'] == 1:
+        return 0
+    return 1
+
+ncases13_ex['recid01'] = ncases13_ex.apply(lambda row:recid(row), axis=1)
+
+ncases13_ex.describe()
+
+# merge with demographics 
+
+call = ("SELECT NameID, NameType, DLState, DLClass, DOB, Race, Sex," 
+        " Height, Weight, Hair, Eyes FROM tblNameActual")
+
+demos = pd.read_sql(call,cnxn)
+
+# number of cases + demos
+
+df = ncases13_ex.merge(demos, on='NameID')
+df.head()
+
+# get number of counts per case
+call = ("SELECT tblNameActual.NameID, tblNameActual.FullName, tblCaseActual.CaseID,"
+        " COUNT(Charges.CountID) as charges"
+        " FROM tblNameActual"
+        " JOIN tblCaseActual"
+        " ON tblNameActual.NameID = tblCaseActual.NameID"
+        " JOIN Charges"
+        " ON tblCaseActual.CaseID = Charges.CaseID"
+        " WHERE tblNameActual.NameID > 541"
+        " AND tblNameActual.NameID != 219998"
+        " AND tblNameActual.NameID != 222460"
+        " AND tblNameActual.NameID NOT LIKE '%test%'" 
+        " AND tblNameActual.FullName != 'Mickey Mouse'"
+        " AND tblNameActual.FullName NOT LIKE '%UNKNOWN%'"
+        " AND tblNameActual.FullName != 'NO DEFENDANT'"
+        " AND tblNameActual.FullName != 'EXPUNGED'"
+        " AND tblCaseActual.RcvdDt >= '2013-01-01'"
+        " GROUP BY tblNameActual.NameID, tblNameActual.FullName, tblCaseActual.CaseID"
+        " ORDER BY tblNameActual.NameID")
+        
+ctspercase = pd.read_sql(call,cnxn)
+
+
+# get total count per person
+#grp = ctspercase['charges'].groupby(ctspercase.NameId)
+#totc = grp.sum()
+
+totc2 = ctspercase.groupby(['NameID'])['charges'].sum()
+totc2.head()
+
+# due to mismatch between caseActual and Charges, missing charge info for ~ 3000 defendants
+totct = pd.DataFrame({'TotCharge': totc2}).reset_index()
+totct.head()
+
+# add to df
+# total # of charges (from cts per case.py)
+# missing charge data for ~ 3000 people (as of 1.26) (how = left preserves all rows)
+df = df.merge(totct, how = 'left', on ='NameID')
+
+
+## names, cases, and charges
+call=("SELECT tblNameActual.*, tblCaseActual.CaseID,"
+      " tblCaseActual.RcvdDt, tblCaseActual.Status, tblCaseActual.StatusDt, Charges.*"
+      " FROM tblNameActual"
+      " JOIN tblCaseActual"
+      " ON tblNameActual.NameID = tblCaseActual.NameID"
+      " JOIN Charges"
+      " ON tblCaseActual.CaseID = Charges.CaseID"
+      " WHERE tblNameActual.NameID > 541"
+      " AND tblNameActual.NameID != 219998"
+      " AND tblNameActual.NameID != 222460"
+      " AND tblNameActual.NameID NOT LIKE '%test%'" 
+      " AND tblNameActual.FullName != 'Mickey Mouse'"
+      " AND tblNameActual.FullName NOT LIKE '%UNKNOWN%'"
+      " AND tblNameActual.FullName != 'NO DEFENDANT'"
+      " AND tblNameActual.FullName != 'EXPUNGED'"
+      " AND tblCaseActual.RcvdDt >= '2013-01-01'")
+
+namescasescts = pd.read_sql(call,cnxn)
+
+print namescasescts.head()
+x = namescasescts.CaseID
+x = x.ix[:,1]
+len(x.unique())
+
+len(namescasescts.NameID.unique())
+
+namescasescts.CaseID
+
+## everything; long by condition by count
+# only select necessary vars
+call_all=("SELECT tblNameActual.NameID, tblNameActual.FullName, tblNameActual.DOB,"
+      " tblNameActual.Race, tblNameActual.Sex, tblNameActual.DLState, tblNameActual.NameType,"
+      " tblCaseActual.CaseID, tblCaseActual.RcvdDt, tblCaseActual.Status, tblCaseActual.StatusDt,"
+      " Charges.CountID, Charges.StatuteID, Charges.StatuteCode, Charges.StatuteDesc,"
+      " Charges.StatuteSeverityCode, Charges.StatuteSeverityDesc,"
+      " Sentence.SentenceTypeDesc, Sentence.SentenceFromDesc, Sentence.Amount1, Sentence.Amount2,"
+      " Sentence.SentenceNotes, Condition.EventType, Condition.Description,"
+      " Judgement.dispocode, Judgement.dispodesc, Judgement.pleacode, Judgement.pleadesc"
+      " FROM tblNameActual"
+      " JOIN tblCaseActual"
+      " ON tblNameActual.NameID = tblCaseActual.NameID"
+      " JOIN Charges"
+      " ON tblCaseActual.CaseID = Charges.CaseID"
+      " JOIN Condition"
+      " ON Charges.CountID = Condition.CountID"
+      " JOIN Judgement"
+      " ON Charges.CountID = Judgement.CountID"
+      " LEFT JOIN Sentence"
+      " ON Charges.CountID = Sentence.CountID"
+      " WHERE tblNameActual.NameID > 541"
+      " AND tblNameActual.NameID != 219998"
+      " AND tblNameActual.NameID != 222460"
+      " AND tblNameActual.NameID NOT LIKE '%test%'" 
+      " AND tblNameActual.FullName != 'Mickey Mouse'"
+      " AND tblNameActual.FullName NOT LIKE '%UNKNOWN%'"
+      " AND tblNameActual.FullName != 'NO DEFENDANT'"
+      " AND tblNameActual.FullName != 'EXPUNGED'"
+      " AND tblCaseActual.RcvdDt >= '2013-01-01'")
+
+dfall = pd.read_sql(call_all,cnxn)
+
+dfall.head()
+

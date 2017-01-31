@@ -1,0 +1,27 @@
+import pandas as pd 
+
+## build single-level wide file (each row = one defendant)
+## need to create filtered case count (ncases13_ex::cases.py) first
+
+# get all of the demographic data from everyone
+# could use test name filters, but will still have a bunch of extras (e.g., agency contacts)
+call = ("SELECT NameID, NameType, DLState, DLClass, DOB, Race, Sex," 
+        " Height, Weight, Hair, Eyes FROM tblNameActual")
+
+demos = pd.read_sql(call,cnxn)
+
+
+# number of cases + demos
+
+df = ncases13_ex.merge(demos, on='NameID')
+df.head()
+
+# total # of charges (from cts per case.py)
+# missing charge data for ~ 3000 people (as of 1.26) (how = left preserves all rows)
+df = df.merge(totct, how = 'left', on ='NameID')
+
+
+## troubleshooting case - charge discrepancy
+# df = after merging cases + demos + leftjoin count total
+missing = df.loc[df['TotCharge'].isnull()]
+missing.head()

@@ -1,10 +1,8 @@
-"""
-Run connect.py first to open db connection
-Gets all demographic and case info
-"""
+# get demo, case, charge data (will be long by count)
+
 import pandas as pd
 
-call=("SELECT tblNameActual.*, tblCaseActual.NameID, tblCaseActual.CaseID,"
+call=("SELECT tblNameActual.*, tblCaseActual.CaseID,"
       " tblCaseActual.RcvdDt, tblCaseActual.Status, tblCaseActual.StatusDt, Charges.*"
       " FROM tblNameActual"
       " JOIN tblCaseActual"
@@ -21,10 +19,6 @@ call=("SELECT tblNameActual.*, tblCaseActual.NameID, tblCaseActual.CaseID,"
       " AND tblNameActual.FullName != 'EXPUNGED'"
       " AND tblCaseActual.RcvdDt >= '2013-01-01'")
 
-namescases = pd.read_sql(call,cnxn)
+namescasescts = pd.read_sql(call,cnxn)
 
-print namescases.head()
-
-xtb = pd.crosstab(index=namescases['RcvdDt'], columns='count')
-print xtb
-#cnxn.close
+print namescasescts.head()

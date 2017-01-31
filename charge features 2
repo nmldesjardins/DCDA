@@ -1,0 +1,411 @@
+import pandas as pd
+import sklearn
+from sklearn.feature_extraction.text import CountVectorizer
+import nltk
+#from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans, MiniBatchKMeans
+import matplotlib.pyplot as plt
+from matplotlib.colors import Colormap
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn import metrics
+
+
+statutes = pd.read_csv("~/Desktop/insight/DCDA/statute codes.csv")
+statutes.head()
+statutes.columns=['StatuteCode','StatuteDesc', 'StatuteShortDesc', 'StatuteCombined']
+
+
+# tokenize and vectorize statute desc
+vec = CountVectorizer(stop_words='english')
+stat2vec = vec.fit_transform(statutes.StatuteDesc)
+
+# create df
+vecdf = pd.DataFrame(stat2vec.toarray(), columns = vec.get_feature_names())
+list(vecdf)
+
+
+
+## use chapter as grouping variable
+statutes['statCh'] = statutes.StatuteCode.apply(lambda x: x.split('.')[0])
+
+vecdfclass = vecdf
+vecdfclass['statCh'] = statutes.statCh
+
+# instead of counts, get tfidf for kmeans - helps improve clustering w/ weighting features
+labels = vecdfclass.statCh
+true_k = np.unique(labels).shape[0]
+
+
+tfvec = TfidfVectorizer(stop_words='english')
+stat2tfvec = tfvec.fit_transform(statutes.StatuteDesc)
+
+km = KMeans(n_clusters=10)
+km.fit(stat2tfvec) 
+
+print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels, km.labels_))
+print("Completeness: %0.3f" % metrics.completeness_score(labels, km.labels_))
+print("V-measure: %0.3f" % metrics.v_measure_score(labels, km.labels_))
+print("Adjusted Rand-Index: %.3f"
+      % metrics.adjusted_rand_score(labels, km.labels_))
+print("Silhouette Coefficient: %0.3f"
+      % metrics.silhouette_score(stat2tfvec, km.labels_, sample_size=1000))
+      
+# top terms per cluster
+order_centroids = km.cluster_centers_.argsort()[:,::-1]
+terms = tfvec.get_feature_names()
+for i in range(10):
+    print ("Cluster %d:" % i)
+    for ind in order_centroids[i,:10]:
+        print (' %s' % terms[ind])
+    print
+    
+
+
+
+# add stopwords
+from sklearn.feature_extraction import text
+words = ['degree','second','first','third','fourth','attempted','aggravated','years','use','felony','misdemeanor']
+stopwords = text.ENGLISH_STOP_WORDS.union(words)
+
+tfvec = TfidfVectorizer(stop_words=stopwords)
+stat2tfvec = tfvec.fit_transform(statutes.StatuteDesc)
+
+km = KMeans(n_clusters=10)
+km.fit(stat2tfvec) 
+
+print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels, km.labels_))
+print("Completeness: %0.3f" % metrics.completeness_score(labels, km.labels_))
+print("V-measure: %0.3f" % metrics.v_measure_score(labels, km.labels_))
+print("Adjusted Rand-Index: %.3f"
+      % metrics.adjusted_rand_score(labels, km.labels_))
+print("Silhouette Coefficient: %0.3f"
+      % metrics.silhouette_score(stat2tfvec, km.labels_, sample_size=1000))
+      
+# top terms per cluster
+order_centroids = km.cluster_centers_.argsort()[:,::-1]
+terms = tfvec.get_feature_names()
+for i in range(10):
+    print ("Cluster %d:" % i)
+    for ind in order_centroids[i,:10]:
+        print (' %s' % terms[ind])
+    print
+    
+
+## kmeans is getting clusters that don't make a ton of sense (not interpretable)
+## instead: for each chapter -> sum counts of each feature --> return top feature
+
+# update stopwords to include numbers and re-run
+#words = ['degree','second','first','third','fourth','attempted','aggravated','years','use','felony','misdemeanor']
+#stopwords = text.ENGLISH_STOP_WORDS.union(words)
+nums = ['010','015','10','100','1000','13','135','16','163','163a','18','195','2013','2015','2016','21','24','32','64','811']
+stopwords = stopwords.union(nums)
+
+# tokenize and vectorize statute desc
+vec2 = CountVectorizer(stop_words=stopwords)
+stat2vec2 = vec2.fit_transform(statutes.StatuteDesc)
+
+# create df
+vecdf2 = pd.DataFrame(stat2vec2.toarray(), columns = vec2.get_feature_names())
+vecdf2['statCh']=statutes.statCh
+vecdf2.head()
+
+# tfidf
+tfidfvec = TfidfVectorizer(analyzer=,stop_words = stopwords)
+stat2tfidf = tfidfvec.fit_transform(statutes.StatuteDesc)
+
+tfidfdf = pd.DataFrame(stat2tfidf.toarray(), columns = tfidfvec.get_feature_names())
+tfidfdf['statCh'] = statutes.statCh
+tfidfdf.head()
+
+
+
+grouped = vecdf2.groupby('statCh')
+totct = grouped.sum() # sum counts of each feature for each chapter
+totct.head()
+
+
+tfgroup = tfidfdf.groupby('statCh')
+tottfidf = tfgroup.sum() # sum of tfidf values
+tottfidf.head()
+
+tottftr = tottfidf.transpose()
+tottftr.head()
+
+totcttr = totct.transpose()
+totcttr.head()
+totcttr.loc[totcttr['163']>0]
+
+
+from operator import itemgetter as it
+from itertools import repeat
+
+tottfidf['statCh'] = tottfidf.index
+tottfidf.head()
+
+totct['statCh'] = totct.index
+totct.head()
+
+
+
+
+n = 5
+
+new_d = (zip(repeat(row["statCh"]), map(it(0),(row[1:].sort_values(ascending=0)[:n].iteritems())))
+                 for _, row in tottfidf.iterrows())
+
+new_d2 = (zip(repeat(row["statCh"]), map(it(0),(row[1:].sort_values(ascending=0)[:n].iteritems())))
+                 for _, row in totct.iterrows())
+new_d
+
+for row in new_d2:
+    print(list(row))
+    
+for row in new_d2:
+    print(plt.hist(row))
+    
+
+plt.hist(totct.insurance)  
+plt.hist(totct.hunting)
+plt.hist(tottfidf.marijuana)
+    
+  
+    
+from matplotlib.ticker import FormatStrFormatter
+plt.xticks(tottftr['163']>0,tottftr.index)
+plt.hist(tottftr['163']>0,)
+
+
+fig, axes = plt.subplots(len(tottftr.columns)//3,3, figsize = (12,48))
+for col in zip(tottftr.columns,axes):
+    tottftr.hist(column = col, ax=1)
+    
+statutes.loc[statutes['statCh']=='164'].StatuteDesc.unique()
+
+
+## let's try an lda on everything for funsies
+from sklearn.decomposition import LatentDirichletAllocation as LDA
+
+# use output from raw count vec (stat2vec2)
+
+lda = LDA(n_topics = 10)
+lda.fit(stat2vec2)
+feature_names = vec2.get_feature_names()
+
+def print_top_words(model, feature_names, n_top_words):
+    for topic_idx, topic in enumerate(model.components_):
+        print("Topic #%d:" %topic_idx)
+        print(" ".join([feature_names[i]
+                            for i in topic.argsort()[:-n_top_words - 1:-1]]))
+    print()
+    
+print_top_words(lda, feature_names, 20)    
+    
+    
+vec2 = CountVectorizer(stop_words=stopwords)
+x163 = statutes.StatuteDesc.loc[statutes['statCh']=='163']
+x163.head()
+stat2vec163 = vec2.fit_transform(x163)
+lda = LDA(n_topics = 3)
+
+lda.fit(stat2vec163)
+feature_names = vec2.get_feature_names()   
+
+print_top_words(lda, feature_names, 10)    
+     
+    
+# from gensim...doesnt qute get there
+from gensim import corpora, models, similarities
+
+# tokenize and vectorize statute desc
+vec2 = CountVectorizer(stop_words=stopwords)
+stat2vec2 = vec2.fit_transform(statutes.StatuteDesc)
+
+# create df
+vecdf2 = pd.DataFrame(stat2vec2.toarray(), columns = vec2.get_feature_names())
+vecdf2.head()
+
+x = statutes.loc[statutes['statCh']=='164']
+len(x.StatuteCode.unique())
+x
+len(statutes.StatuteDesc.unique())
+
+text=statutes['StatuteDesc'].apply(nltk.wordpunct_tokenize)
+text
+
+text2 = text.apply(word.lower() for word in text if word.isalpha())
+text2
+
+dictionary = corpora.Dictionary(text)
+new_vec = dictionary.doc2bow(text)
+
+class MyCorpus(object):
+    def __iter__(self):
+        for line in statutes.StatuteDesc:
+            yield dictionary.doc2bow(line.lower().split())
+
+x = MyCorpus()
+for vector in x: print(vector)
+
+lda = models.ldamodel.LdaModel(vecdf2, num_topics = 50)
+
+list(totct)
+x = statutes.StatuteDesc.unique()
+
+print x
+
+rep=['in the (first|second|third|fourth) degree','attempted','\(.*?\)','-','felony','misdemeanor','2013','2015','2016']
+statutes['newdesc']=statutes.StatuteDesc
+for i in rep:
+    statutes['newdesc'] = statutes.newdesc.str.replace(i,'', case=False)
+statutes['newdesc']=statutes.newdesc.str.strip().str.lower()
+len(statutes.newdesc.unique())
+
+# unique for each chapter
+group = statutes.groupby('statCh')
+charges=pd.DataFrame(group.newdesc.unique())
+charges
+
+for i in range(0,len(charges)):
+    charges['distinct'][i]=len(charges.newdesc[i])
+
+charges['statCh']=charges.index
+charges.sort('distinct')
+
+
+charges.newdesc.ix['475']
+
+# from stripped,label
+statutes.newdesc.unique()
+
+# drugs : 475 (mostly)
+statutes.loc[statutes['statCh']=='475']
+charges.newdesc.ix['475']
+poss = ['possession']
+delivery = ['delivery']
+man = ['manufacture']
+
+mj = ['marijuana']
+opioid = ['oxycodone','hydrocodone','methadone','heroin']
+
+drugs=['methamphetamine','oxycodone','hydrocodone','methadone','marijuana','heroin','mdma','cocaine','controlled substance']
+
+# against a person: 163
+statutes.newdesc.loc[statutes['statCh']=='163'].unique()
+
+
+assault = 'assaul?'
+reck_end = 'recklessly endangering'
+sex = ['sodomy','sexual','rape','incest','intimate','sexually','indecency']
+sex_vio = ['sodomy','rape','penetration','sexual abuse']
+menace_stalk = ['menacing','menace','stalking','invasion of personal privacy','mistreatment']
+officer_vic = ['officer','uniform']
+murder = ['murder','manslaughter','homicide']
+child_vic = ['a minor','child','under 18 years']
+human_traff = ['trafficking','buying or selling a person']
+cust = ['custodial interference','nonsupport']
+kid = ['kidnapping']
+strang = ['strangulation']
+violent_vs_person_nosex = kid + strang + murder + nonlethweap
+coerc = 'coercion'
+nonlethweap = ['stun gun']
+sex_off = ['sex offender']
+
+# weapons: 166
+statutes.newdesc.loc[statutes['statCh']=='166'].unique()
+
+harass = ['harassment','harass']
+firearm = ['firearm','gun']
+weapon = firearm + ['weapon', 'destructive device','body armor']
+dead_vic = ['memorial','corpse']
+disord = ['disorderly']
+rack = ['racketerring']
+
+
+# property: 164
+statutes.newdesc.loc[statutes['statCh']=='164'].unique()
+
+theft = ['theft']
+burg_rob = ['burglary', 'robbery']
+burgrobth = burg_rob+theft+['rented or leased personal property']
+mischief = ['mischief']
+trespass = ['trespass']
+litter = ['trash','littering','litter']
+stolecar = ['unauthorized use of a vehicle','entry into a motor vehicle','rented or leased motor vehicle']
+computer = ['computer crime']
+arson = ['arson','burning']
+forest = ['forest products']
+money = ['money laundering']
+
+
+# vs peace officer: 162
+statutes.newdesc.loc[statutes['statCh']=='162'].unique()
+
+resist = ['resisting arrest']
+bribes = 'brib?'
+interfering = ['interfering with a peace officer','false information','hindering','initiating a false report','interfering with a firefighter','obstructing','false swearing','perjury','unsworn falsification']
+misconduct = 'official misconduct'
+out = ['escape','unauthorized departure','fleeing']
+impers = ['impersonation']
+
+# fraud: 165
+statutes.newdesc.loc[statutes['statCh']=='165'].unique()
+
+fraud1 = 'fraud?
+
+# all charges can go under fraud
+if statCh == 165: fraud = True
+
+# general welfare and animals: 167
+statutes.newdesc.loc[statutes['statCh']=='167'].unique()
+
+prostitute = 'prostitut?'
+animal_vic = ['animal']
+
+# w vehicle: 811
+statutes.newdesc.loc[statutes['statCh']=='811'].unique()
+
+driving = ['driver','driving'
+
+# licenses: 807
+statutes.newdesc.loc[statutes['statCh']=='807'].unique()
+
+fakeid = ['drivers licence','false information','production of identification','misuse of licence','person's license']
+
+# alcohol: 471
+statutes.newdesc.loc[statutes['statCh']=='471'].unique()
+
+mip = ['minor in possession']
+serving = ['serving without','furnishing alcohol']
+
+# 496
+statutes.newdesc.loc[statutes['statCh']=='496'].unique()
+if statCh = 496, wildlife = True
+
+
+
+def statfeatures(words,colname):
+    if isinstance(words, list) == False:
+        pat = words
+    else:
+        pat = '|'.join(map(re.escape,words))
+    statutes[colname] = statutes.newdesc.str.contains(pat)
+
+statfeatures(assault,'ass')
+statfeatures(mj,'weed')
+
+
+
+
+
+
+
+
+chkeys = zip(charges.statCh, charges.newdesc)
+chkeys
+
+statDic = {k:v for k,v in chkeys}
+statDic.keys()
+statDic.values()
+

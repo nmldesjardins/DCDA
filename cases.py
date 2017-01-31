@@ -91,8 +91,3 @@ def recid (row):
 ncases13_ex['recid01'] = ncases13_ex.apply(lambda row:recid(row), axis=1)
 
 
-for i in ncases13_ex:
-    if ncases13_ex['cases']==1:
-        ncases13_ex['recid01']==0
-    else:
-        ncases13_ex['recid01']==1
