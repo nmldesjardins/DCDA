@@ -1,0 +1,145 @@
+## condition feature
+
+# event + desc = conditions
+# dispo/plea = judgments
+# ignore sentences for this moment - need to check (look like merged incorrectly)
+cond = dflong[['CountID','EventType','Description','dispocode','dispodesc','pleacode','pleadesc']]
+cond.head()
+
+# disposition
+disp = cond[['dispocode','dispodesc']]
+len(disp.drop_duplicates())
+
+dflong = pd.concat([dflong,pd.get_dummies(dflong.dispocode, prefix='disp_')],axis=1)
+disp = pd.concat([disp,pd.get_dummies(disp.dispodesc, prefix='disp_')],axis=1)
+disp.head()
+
+# plea
+plea = cond[['pleacode','pleadesc']]
+len(plea.drop_duplicates())
+plea.drop_duplicates()
+
+dflong = pd.concat([dflong,pd.get_dummies(dflong.pleadesc, prefix='plea')],axis=1)
+dflong['plea_allguilt'] = dflong.statCh.str.contains('guilty')
+
+dflong.head()
+
+
+## conditions of judgment
+cond2=cond[['Description','EventType']]
+cond2.drop_duplicates()
+len(cond2.EventType.unique())
+
+# use all codes (173)
+cond2['EventType'] = cond2.EventType.str.lower()
+
+
+cond2
+cond2 = pd.concat([cond2,pd.get_dummies(cond2.EventType, prefix='jccode')],axis=1)
+
+
+
+## for broader topics
+cond2['condtop'] = cond2['Description']
+cond2['condtop'] = cond2.condtop.apply(lambda x: x.split(':')[0])
+cond2['condtop'] = cond2.condtop.apply(lambda x: x.split('-')[-1])
+cond2['condtop']= cond2.condtop.str.replace('\(.*?\)','')
+cond2['condtop'] =  cond2.condtop.str.strip().str.lower()
+cond2.condtop.drop_duplicates()
+
+len(cond2.judgecond.drop_duplicates())
+
+judgecondition_topics = {
+    'jcond_eval' : ['eval'] # any evalution
+    'jcond_domesticvio' : ['domestic violence','stddvb','stddva']
+    'jcond_sexoff' : ['sex offender','stdso']
+    'jcond_nocontact' : ['nocon']
+    'jcond_jail':['jail']
+    'jcond_prison' : ['prison']
+    'jcond_parole' : ['parole']
+    'jcond_probation' : ['probation']
+    'jcond_fine' : ['fine']
+    'jcond_duii' : ['stdduii']
+}
+
+
+
+
+
+###### sentence length stuff #####
+sent = dflong[['SentenceTypeDesc',
+ 'SentenceFromDesc',
+ 'Amount1',
+ 'Amount2',
+ 'SentenceNotes','year','day','hour','month','week','sentDurRaw','sentDurUnit']]
+
+sent.head()
+dflong['SentenceFromDesc'] = dflong['SentenceFromDesc'].astype(str)
+dflong['senttime']=dflong.SentenceFromDesc.str.strip().str.lower()
+
+dflong['sentDurRaw'] = dflong.senttime.apply(lambda x: x.split(' ')[0])
+dflong['sentDurRaw'] = dflong.sentDurRaw.str.replace('days','0', case=False)
+dflong['sentDurRaw'] = dflong.sentDurRaw.str.replace('1:00','0', case=False)
+dflong['sentDurRaw'] = dflong['sentDurRaw'].astype(float)
+
+dflong['sentDurUnit'] = dflong.senttime.apply(lambda x: x.split(' ')[-1])
+dflong.head()
+
+
+timeDict = {'month': ['month'],
+            'day': ['day'],
+            'week':['week'],
+            'hour':['hour'],
+            'year' : ['year']
+            }
+
+
+
+dflong['timeMult']=pd.Series()
+sent.head()
+
+sent['sentDurUnit']=sent['sentDurUnit'].astype(str)
+sent.sentDurUnit.unique()
+
+sent.ix[sent.sentDurUnit.isin(['months','month']),'timeMult'] = 30.4167
+sent.ix[sent.sentDurUnit.isin(['day','days','days.']),'timeMult'] = 1.0
+sent.ix[sent.sentDurUnit.isin(['year','years']),'timeMult'] = 365.0
+sent.ix[sent.sentDurUnit.isin(['hours']),'timeMult'] = 0.0416667
+
+
+sent['sentDur_Days'] = sent.timeMult * sent.sentDurRaw
+sent['sentDur_Years'] = sent.sentDur_Days/365
+
+sent.head(20)
+
+
+# truncated sentence types (does not enclude eligibility for programs, upward/downward dispositonal)
+sent['senttypedesc']=sent.SentenceTypeDesc.str.lower()
+
+sentDict = {'jail' : ['jail'],
+    'probation' : ['probation'],
+    'restitution' : ['restitution'],
+    'fine': ['fine'],
+    'gridblock': ['gridblock'],
+    'superviz' : ['post-prison supervision'],
+    'prison' : ['prison'],
+    'fees':['fee','fees',costs],
+    'elecmonit':['electronic monitoring']
+}
+
+
+
+## fine/fee amounts
+# Amount 1 and Amount 2 are both floats; add together for total
+sent['sentPayTotal'] = sent.Amount1.fillna(0) + sent.Amount2.fillna(0)
+sent.head()
+
+sent.month.dtype
+sent.month.astype(int).head()
+sent.year.astype(int)
+
+for col in sent:
+    if dtype == 'bool':
+        sastype(int)
+    
+

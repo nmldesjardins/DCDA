@@ -1,0 +1,79 @@
+import dflong from createfeatures.py
+
+#### Judgement Condition ####
+## Judgement Condition / Sentence / Count --> Judgement/Count
+
+# create df that counts judgement condition for each sentence on each charge
+
+var = judgecondition_topicsDict.keys()
+var = var[1:len(var)]
+# initalize df
+dfwide_jc = pd.DataFrame(dflong.groupby(['CountID','senttypedesc'])['jcond_parole'].sum())
+for i in var:
+    tmp = pd.DataFrame(dflong.groupby(['CountID','senttypedesc'])[i].sum())
+    dfwide_jc = pd.merge(dfwide_jc,tmp,left_index=True,right_index=True)
+
+# conditions apply to the charge overall, not the specific sentence
+# flatten df to just be one line per CountID
+dfwide_jc.index = dfwide_jc.index.droplevel(1)
+dfwide_jc['CountID'] = dfwide_jc.index
+
+dfwide_jc = pd.DataFrame(dfwide_jc.drop_duplicates())
+
+#### Sentences ####
+
+# get all sentences for a given count on one row
+# include yes/no + attached amount/duration + total amount/duration
+
+# identify sentence-relevant columns
+scols = dflong.columns.to_series().str.contains('sent')
+scols['CountID'] = True
+
+# get just those columns
+dflong_s = dflong[dflong.columns[scols]]
+
+# remove excess rows (one row = one portion of the sentence)
+dflong_s = pd.DataFrame(dflong_s.drop_duplicates())
+
+# define variable names
+varS = list(dflong_s)[6:len(list(dflong_s))]
+
+# initalize df
+dfwide_sent = pd.DataFrame(dflong_s.groupby(['CountID'])['senttype_probation'].sum())
+
+# get sums for rest of vars
+for i in varS:
+    tmp = pd.DataFrame(dflong_s.groupby(['CountID'])[i].sum())
+    dfwide_sent = pd.merge(dfwide_sent,tmp,left_index=True,right_index=True)
+dfwide_sent['CountID'] = dfwide_sent.index
+
+#### Count-level sentence and judgement condition ####
+
+dfwide = pd.merge(dfwide_jc, dfwide_sent)
+dfwide.head()
+
+list(dfwide)
+
+#### Count-level all variables ####
+dp = list(dfwide)
+
+dropcol = [value for value in x if value != 'CountID']
+
+dflong2 = dflong.drop(dropcol,axis=1)
+dflong2 = dflong2.drop(['senttypedesc','senttime','sentDurRaw','sentDurUnit','timeMult'], axis=1)
+list(dflong2)
+
+len(dflong2) # 102825
+len(dfwide) # 11145 - some loss here; incomplete sentencing data
+
+dflong3 = pd.DataFrame(dflong2.drop_duplicates())
+len(dflong3)
+
+dfcount = pd.merge(dflong3,dfwide,on='CountID')
+
+dfcount.head()
+len(dfcount.CountID.unique())
+
+test = dfwide.join(dflong, on = 'CountID')
+
+test.head()
