@@ -17,7 +17,7 @@ call_all=("SELECT tblNameActual.NameID, tblNameActual.FullName, tblNameActual.DO
       " FROM tblNameActual"
       " JOIN tblCaseActual"
       " ON tblNameActual.NameID = tblCaseActual.NameID"
-      " LEFT JOIN Charges" # about 6000 cases are missing charge information; include to get acc recid, but maybe fill in with attributes later
+      " LEFT JOIN Charges"
       " ON tblCaseActual.CaseID = Charges.CaseID"
       " LEFT JOIN Condition"
       " ON Charges.CountID = Condition.CountID"
@@ -26,6 +26,7 @@ call_all=("SELECT tblNameActual.NameID, tblNameActual.FullName, tblNameActual.DO
       " LEFT JOIN Sentence"
       " ON Charges.CountID = Sentence.CountID"
       " WHERE tblNameActual.NameID > 541"
+      " AND tblNameActual.NameID != 219443"
       " AND tblNameActual.NameID != 219998"
       " AND tblNameActual.NameID != 222460"
       " AND tblNameActual.NameID NOT LIKE '%test%'" 

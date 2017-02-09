@@ -54,5 +54,11 @@ def fcase (row):
         return 1
     return 0
 
-def p
+
+
+def recid2 (row):
+    """ returns 1 if person has more than 1 case """
+    if row['totCaseConvict'] >= 2 :
+        return 1
+    return 0
 

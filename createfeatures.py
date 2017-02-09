@@ -1,11 +1,9 @@
 import numpy as np
+import pandas as pd
 import datetime
 from featurefunctions import *
 from featureDicts import *
-# for local test only:
-from testload import dflong
-# for sql:
-#from dflonglong import dflong
+from dflonglong import dflong
 
 """
     uses regex to clean up text descriptions
@@ -39,8 +37,7 @@ dflong['DOBd'] = pd.to_datetime(dflong['DOB'], dayfirst=True)
 # all are %d/%m/%y format; py interprets years before 68 as 2068
 dflong['DOBd2'] = dflong['DOBd'].apply(lambda x: x.replace(year = x.year-100) if x.year > 2005 else x.replace(year = x.year))
 
-dflong['age'] = (dflong.RcvdDt - dflong.DOBd2).astype(int) # returns age in nanoseconds
-dflong['age'] = dflong.age/3.154e+16 # convert to years
+dflong['age'] = (dflong.RcvdDt - dflong.DOBd2)/np.timedelta64(1,'Y')
 
 # age categories
 dflong['age_under18'] = dflong['age'].apply(lambda x :1 if x < 18 else 0)
@@ -74,6 +71,7 @@ dflong = pd.concat([dflong,pd.get_dummies(dflong.RaceNew,prefix='Race',dummy_na=
 ## clean up ##
 
 # extract chapter code from full statute code 
+dflong.StatuteCode2 = dflong.StatuteCode.apply(lambda x: 'no' if x == None else x)
 dflong['statCh'] = dflong.StatuteCode.apply(lambda x: x.split('.')[0])
 
 # clean up statute descriptions
@@ -83,6 +81,7 @@ dflong['newStatdesc'] = dflong.StatuteDesc
 for i in rep:
     dflong['newStatdesc'] = dflong.newStatdesc.str.replace(i,'', case=False)
 dflong['newStatdesc']=dflong.newStatdesc.str.strip().str.lower()
+dflong['newStatdesc'] = dflong.newStatdesc.apply(lambda x: 'no' if x == None else x)
 
 
 ## create features ##
@@ -95,10 +94,12 @@ dflong = pd.concat([dflong,pd.get_dummies(dflong.StatuteSeverityDesc,prefix='cou
 dflong['wildlife_hunt'] = dflong.statCh.str.contains('497|496|498')       
 dflong['fraud'] = dflong.statCh.str.contains('165')
 dflong['duii'] = dflong.statCh.str.contains('813')
+dflong['count_againstProperty'] = dflong.statCh.str.contains('164').astype(int)
+dflong['count_againstPersons'] = dflong.statCh.str.contains('163').astype(int)
 
-# pre-coded case attributes
-dflong = pd.concat([dflong,pd.get_dummies(dflong.CaseAttribute,prefix='catt_')],axis=1)
-dflong = pd.concat([dflong,pd.get_dummies(dflong.CaseAttDesc,prefix='cattde_')],axis=1)
+# pre-coded case attributes - only available for each case; don't match to counts
+#dflong = pd.concat([dflong,pd.get_dummies(dflong.CaseAttribute,prefix='catt_')],axis=1)
+#dflong = pd.concat([dflong,pd.get_dummies(dflong.CaseAttDesc,prefix='cattde_')],axis=1)
 
 
 # all other statutes
