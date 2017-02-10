@@ -69,6 +69,14 @@ plt.legend(bbox_to_anchor=(0,1))
 
 ## Crimes by Sentences
 
+# crimes by setntences
+dfcount1.loc[dfcount1['js_commServ']==1].groupby('newStatdesc2').newStatdesc2.value_counts()
+dfcount1.loc[dfcount1['js_fine']==1].groupby('newStatdesc2').newStatdesc2.value_counts()
+dfcount1.loc[dfcount1['js_jail']==1].groupby('newStatdesc2').newStatdesc2.value_counts()
+dfcount1.loc[dfcount1['js_prison']==1].groupby('newStatdesc2').newStatdesc2.value_counts()
+dfcount1.loc[dfcount1['js_probation']==1].groupby('newStatdesc2').newStatdesc2.value_counts()
+
+# crimes by sentences (less accurate - only one sentence per charge)
 sent_crime = pd.crosstab(dfcount1.newStatdesc2, dfcount1.sentcat)
 sent_crime.div(sent_crime.sum(1).astype(float),axis=0).plot(kind = 'bar', stacked=True)
 plt.legend(bbox_to_anchor=(0,1))
@@ -81,15 +89,6 @@ sent_crime3 = pd.crosstab(dfcount1.newStatdesc2, dfcount1.js)
 
 #### Recidivism ####
 
-# recidivism by sentence
-sent_recid = pd.crosstab(dfcount1.recidivist, dfcount1.sentcat)
-sent_recid.div(sent_recid.sum(1).astype(float),axis=0).plot(kind = 'bar', stacked=True)
-plt.legend(bbox_to_anchor=(0,1))
-
-sent_recid2 = pd.crosstab(dfcount1.sentTypes.loc[(dfcount1['sentTypes']>20) & (dfcount1['sentTypes']!='')],dfcount1.recidivist.astype(bool)).plot(kind='bar')
-plt.legend(bbox_to_anchor=(0,1))
-
-sent_recid2 = pd.crosstab(dfcount1.sentTypes, dfcount1.recidivist)
 
 # recidivism by crime
 crime_recid = pd.crosstab(dfcount1.newStatdesc2, dfcount1.recidivist)
@@ -109,6 +108,14 @@ race_recid = pd.crosstab(dfcount1.recidivist, dfcount1.Race)
 race_recid2 = pd.crosstab(dfcount1.recidivist, dfcount1.Race.loc[dfcount1['Race']!='White2'])
 race_recid2.div(race_recid2.sum(1).astype(float),axis=0).plot(kind = 'bar', stacked=True)
 plt.legend(bbox_to_anchor=(0,1))
+
+# recidivism by crime by sentence
+dfcount1.loc[dfcount1['js_commServ']==1].groupby('newStatdesc2').recidivist.mean()
+dfcount1.loc[dfcount1['js_fine']==1].groupby('newStatdesc2').recidivist.mean()
+dfcount1.loc[dfcount1['js_jail']==1].groupby('newStatdesc2').recidivist.mean()
+dfcount1.loc[dfcount1['js_prison']==1].groupby('newStatdesc2').recidivist.mean()
+dfcount1.loc[dfcount1['js_probation']==1].groupby('newStatdesc2').recidivist.mean()
+
 
 
 # get counts of counts for all combinations
